@@ -1177,13 +1177,13 @@ class TestSolrConnectionSearchHandler(SolrConnectionTestCase):
         # method to capture information about the request, and suppress
         # sending it to the server.
 
-        def post(selector, body, headers):
+        def request(selector, body, headers):
             self.request_selector = selector
             self.request_body = body
             return EmptyResponse()
 
         conn = super(TestSolrConnectionSearchHandler, self).new_connection()
-        conn._post = post
+        conn._request = request
         return conn
 
     def test_select_request(self):

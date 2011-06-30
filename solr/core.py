@@ -253,7 +253,7 @@ from xml.sax.handler import ContentHandler
 from xml.sax.saxutils import escape, quoteattr
 from xml.dom.minidom import parseString
 
-__version__ = "0.9.4-plundra1"
+__version__ = "0.9.4-plundra2"
 
 __all__ = ['SolrException', 'Solr', 'SolrConnection',
            'Response', 'SearchHandler']
@@ -641,7 +641,7 @@ class Solr:
         attempts = self.max_retries + 1
         while attempts > 0:
             try:
-                if self.prefer_get and len(body) <= self.get_limit:
+                if url.endswith('/select') and self.prefer_get and len(body) <= self.get_limit:
                     self.conn.request('GET', url + "?" + body.encode('UTF-8'), headers=_headers)
                 else:
                     self.conn.request('POST', url, body.encode('UTF-8'), _headers)
