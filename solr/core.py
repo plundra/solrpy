@@ -253,7 +253,7 @@ from xml.sax.handler import ContentHandler
 from xml.sax.saxutils import escape, quoteattr
 from xml.dom.minidom import parseString
 
-__version__ = "0.9.4"
+__version__ = "0.9.4-plundra1"
 
 __all__ = ['SolrException', 'Solr', 'SolrConnection',
            'Response', 'SearchHandler']
@@ -347,6 +347,8 @@ class Solr:
                  http_pass=None,
                  post_headers={},
                  max_retries=3,
+                 prefer_get=False,
+                 get_limit=1024,
                  debug=False):
 
         """
@@ -371,6 +373,8 @@ class Solr:
             http_user, http_pass -- If given, include HTTP Basic authentication 
                 in all request headers.
 
+            prefer_get -- If True, use GET for requests below get_limit bytes.
+
         """
 
         self.scheme, self.host, self.path = urlparse.urlparse(url, 'http')[:3]
@@ -384,6 +388,8 @@ class Solr:
         self.ssl_key = ssl_key
         self.ssl_cert = ssl_cert
         self.max_retries = int(max_retries)
+        self.prefer_get = prefer_get
+        self.get_limit = get_limit
 
         assert self.max_retries >= 0
 
@@ -547,7 +553,7 @@ class Solr:
     def _update(self, request, query=None):
         selector = '%s/update%s' % (self.path, qs_from_items(query))
         try:
-            rsp = self._post(selector, request, self.xmlheaders)
+            rsp = self._request(selector, request, self.xmlheaders)
             data = rsp.read()
         finally:
             if not self.persistent:
@@ -629,13 +635,16 @@ class Solr:
             elif self.scheme == 'https':
                 self.conn.sock.sock.settimeout(self.timeout)
 
-    def _post(self, url, body, headers):
+    def _request(self, url, body, headers):
         _headers = self.auth_headers.copy()
         _headers.update(headers)
         attempts = self.max_retries + 1
         while attempts > 0:
             try:
-                self.conn.request('POST', url, body.encode('UTF-8'), _headers)
+                if self.prefer_get and len(body) <= self.get_limit:
+                    self.conn.request('GET', url + "?" + body.encode('UTF-8'), headers=_headers)
+                else:
+                    self.conn.request('POST', url, body.encode('UTF-8'), _headers)
                 return check_response_status(self.conn.getresponse())
             except (socket.error,
                     httplib.ImproperConnectionState,
@@ -819,7 +828,7 @@ class SearchHandler(object):
             logging.info("solrpy request: %s" % request)
 
         try:
-            rsp = conn._post(self.selector, request, conn.form_headers)
+            rsp = conn._request(self.selector, request, conn.form_headers)
             data = rsp.read()
             if conn.debug:
                 logging.info("solrpy got response: %s" % data)
