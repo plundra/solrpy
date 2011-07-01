@@ -635,13 +635,13 @@ class Solr:
             elif self.scheme == 'https':
                 self.conn.sock.sock.settimeout(self.timeout)
 
-    def _request(self, url, body, headers):
+    def _request(self, url, body, headers, get_safe=False):
         _headers = self.auth_headers.copy()
         _headers.update(headers)
         attempts = self.max_retries + 1
         while attempts > 0:
             try:
-                if url.endswith('/select') and self.prefer_get and len(body) <= self.get_limit:
+                if self.prefer_get and get_safe and len(body) < self.get_limit:
                     self.conn.request('GET', url + "?" + body.encode('UTF-8'), headers=_headers)
                 else:
                     self.conn.request('POST', url, body.encode('UTF-8'), _headers)
@@ -802,6 +802,9 @@ class SearchHandler(object):
         params['fl'] = fields
         params['version'] = self.conn.response_version
         params['wt'] = 'standard'
+        
+        # Add extra variable to show we are a /select-query and GET is safe
+        params['get_safe'] = True
 
         xml = self.raw(**params)
         return parse_query_response(StringIO(xml),  params, self)
@@ -813,6 +816,10 @@ class SearchHandler(object):
         Return the raw result.  No pre-processing or post-processing
         happens to either input parameters or responses.
         """
+
+        # Are we called from SearchHandler? 
+        get_safe = params.pop('get_safe', False)
+
         # Clean up optional parameters to match SOLR spec.
         query = []
         to_str = lambda s: s.encode('utf-8') if isinstance(s, unicode) else s
@@ -828,7 +835,7 @@ class SearchHandler(object):
             logging.info("solrpy request: %s" % request)
 
         try:
-            rsp = conn._request(self.selector, request, conn.form_headers)
+            rsp = conn._request(self.selector, request, conn.form_headers, get_safe)
             data = rsp.read()
             if conn.debug:
                 logging.info("solrpy got response: %s" % data)

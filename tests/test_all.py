@@ -14,6 +14,7 @@ import httplib
 from string import digits
 from random import choice
 from xml.dom.minidom import parseString
+from cgi import urlparse
 
 # solrpy
 import solr
@@ -1177,7 +1178,7 @@ class TestSolrConnectionSearchHandler(SolrConnectionTestCase):
         # method to capture information about the request, and suppress
         # sending it to the server.
 
-        def request(selector, body, headers):
+        def request(selector, body, headers, get_safe=False):
             self.request_selector = selector
             self.request_body = body
             return EmptyResponse()
@@ -1190,8 +1191,8 @@ class TestSolrConnectionSearchHandler(SolrConnectionTestCase):
         conn = self.new_connection()
         conn.select("id:foobar", score=False)
         self.assertEqual(self.request_selector, SOLR_PATH + "/select")
-        self.assertEqual(self.request_body,
-                         "q=id%3Afoobar&version=2.2&fl=%2A&wt=standard")
+        self.assertEqual(urlparse.parse_qs(self.request_body),
+                         urlparse.parse_qs("q=id%3Afoobar&version=2.2&fl=%2A&wt=standard"))
 
     def test_select_raw_request(self):
         conn = self.new_connection()
@@ -1204,8 +1205,8 @@ class TestSolrConnectionSearchHandler(SolrConnectionTestCase):
         alternate = solr.SearchHandler(conn, "/alternate/path")
         alternate("id:foobar", score=False)
         self.assertEqual(self.request_selector, SOLR_PATH + "/alternate/path")
-        self.assertEqual(self.request_body,
-                         "q=id%3Afoobar&version=2.2&fl=%2A&wt=standard")
+        self.assertEqual(urlparse.parse_qs(self.request_body),
+                         urlparse.parse_qs("q=id%3Afoobar&version=2.2&fl=%2A&wt=standard"))
 
     def test_alternate_raw_request(self):
         conn = self.new_connection()
